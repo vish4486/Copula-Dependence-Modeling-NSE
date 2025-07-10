@@ -1,54 +1,80 @@
-# Modeling Dependence in Indian Stock Returns Using ARMA-GARCH and Copulas
+# 📊 Dependence Modeling of Financial Time Series using Copulas
 
-This project applies a two-step modeling approach to financial time series of Indian NSE stocks (RELIANCE, INFY, and HDFCBANK):
+This project is part of the *Data Science for Insurance* course. The objective is to model the **marginal dynamics** and **dependence structure** of financial log-returns from three Indian stocks: **RELIANCE**, **INFY**, and **HDFCBANK**.
 
-1. **Univariate Modeling** using ARMA-GARCH to remove autocorrelation and conditional heteroskedasticity.
-2. **Dependence Modeling** using copulas to capture and analyze nonlinear dependence between assets.
-
----
-
-## 📊 Dataset
-
-- Daily adjusted closing prices from [Yahoo Finance](https://finance.yahoo.com)
-- Stocks: `RELIANCE.NS`, `INFY.NS`, `HDFCBANK.NS`
-- Time range: 2015 to 2025
+The analysis is structured in two major parts:
 
 ---
 
-## 🔧 Tools & Libraries
+## 🔹 Section 1: Univariate Modeling (ARMA-GARCH)
 
-- R
-- `quantmod`, `rugarch`, `forecast`, `copula`, `VineCopula`, `tseries`
+Each stock's log-returns are modeled individually to remove serial correlation and account for volatility clustering.
 
----
-
-## 🔍 Modeling Workflow
-
-### 1. Univariate Modeling
-- ARMA(p,q) model selection via AIC
-- GARCH(1,1) fitted with Student-t innovations
-- Residuals standardized and transformed to pseudo-observations [0,1]
-
-### 2. Dependence Modeling
-- Pairwise scatterplots of pseudo-observations
-- Estimation of Kendall's τ and tail dependence coefficients
-- Parametric copula fitting (Clayton, Gumbel, t, Gaussian)
-- Model validation using goodness-of-fit and diagnostic plots
+### ✔ Steps:
+- Fit **ARMA(p,q)** models using `auto.arima()` with stationarity enforced.
+- Perform residual diagnostics (ACF, Ljung-Box test).
+- Fit **GARCH(1,1)** models using `rugarch::ugarchfit()` with **Student-t** innovations.
+- Extract **standardized residuals**.
+- Transform standardized residuals into **pseudo-observations** via empirical CDF (ranks).
 
 ---
 
-## 📁 Structure
+## 🔹 Section 2: Dependence Modeling via Copulas
 
-- `Project_work_24_25.Rmd`: Full R Markdown source
-- `Project_work_24_25.pdf`: Final compiled report
-- `data/`: Folder for any saved data
-- `plots/`: Generated figures and diagnostic visuals
+This section models the joint dependence between the standardized innovations of the three stocks.
+
+### ✔ Steps:
+1. **Scatterplots** of pseudo-observations to visually inspect dependence structure.
+2. Estimate **nonparametric dependence measures**:
+   - Kendall’s τ
+   - Spearman’s ρ
+3. Compute **empirical tail dependence coefficients**:
+   - Lower tail (λₗ)
+   - Upper tail (λᵤ)
+4. Fit **four bivariate copulas** for each pair:
+   - Clayton, Gumbel, Gaussian, t-copula
+5. Select the **best copula model** using:
+   - Log-likelihood comparison
+   - Cramér-von Mises Goodness-of-Fit test (`VineCopula`)
+6. Provide **graphical diagnostics**:
+   - Density contours
+   - Simulated vs empirical pseudo-observations
+
+---
+
+## 📌 Key Findings
+
+| Pair                | Best Copula | λₗ (Lower Tail) | λᵤ (Upper Tail) | Observation |
+|---------------------|-------------|------------------|------------------|-------------|
+| RELIANCE – INFY     | t-Copula    | 0.193            | 0.092            | Weak tail dependence |
+| RELIANCE – HDFCBANK | t-Copula    | 0.277            | 0.146            | Strongest dependence |
+| INFY – HDFCBANK     | t-Copula    | 0.193            | 0.092            | Similar to REL–INFY |
+
+---
+
+## 🛠️ Packages Used
+- `forecast` / `rugarch` – ARMA-GARCH modeling  
+- `copula` – Copula fitting and diagnostics  
+- `VineCopula` – GOF tests and copula validation  
+- `ggplot2` – Custom visualization  
+
+---
+
+## 📁 Project Structure
+├── data/ # Raw and cleaned data
+├── code/ # All R scripts
+├── plots/ # Exported plots (ACF, GARCH, Copulas)
+├── README.md # Project summary and instructions
+
+
+---
+
+## 📈 Author Notes
+This project aims to demonstrate both **sound marginal modeling** and **robust dependence modeling** using copula theory in R — as commonly applied in risk management of financial portfolios or in insurance.
 
 ---
 
 ## 📌 Author
-
-**Vishal Nigam**  
-University of Trieste – MSc in Data Science & Artificial Intelligence  
+Vishal Nigam
+University of Trieste – MSc in Data Science & Artificial Intelligence
 July 2025
-
