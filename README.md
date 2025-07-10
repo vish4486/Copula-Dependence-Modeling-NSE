@@ -61,10 +61,13 @@ This section models the joint dependence between the standardized innovations of
 ---
 
 ## 📁 Project Structure
+
+project-root/
 ├── data/ # Raw and cleaned data
-├── code/ # All R scripts
-├── plots/ # Exported plots (ACF, GARCH, Copulas)
-├── README.md # Project summary and instructions
+├── code/ # All R scripts (ARMA-GARCH, Copula fitting)
+├── plots/ # Exported plots (ACF, GARCH residuals, pseudo-observations, copulas)
+└── README.md # Project summary and documentation
+
 
 
 ---
