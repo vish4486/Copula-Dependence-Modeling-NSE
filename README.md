@@ -69,7 +69,6 @@ project-root/
 └── README.md # Project summary and documentation
 
 
-
 ---
 
 ## 📈 Author Notes
