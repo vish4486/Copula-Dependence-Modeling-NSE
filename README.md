@@ -35,7 +35,7 @@ This section models the joint dependence between the standardized innovations of
    - Clayton, Gumbel, Gaussian, t-copula
 5. Select the **best copula model** using:
    - Log-likelihood comparison
-   - Cramér-von Mises Goodness-of-Fit test (`VineCopula`)
+   - Goodness-of-Fit test (`VineCopula`)
 6. Provide **graphical diagnostics**:
    - Density contours
    - Simulated vs empirical pseudo-observations
@@ -53,20 +53,25 @@ This section models the joint dependence between the standardized innovations of
 ---
 
 ## 🛠️ Packages Used
-- `forecast` / `rugarch` – ARMA-GARCH modeling  
+- `quantmod` / `xtx` - Data Retrieval
+- `forecast` / `rugarch` / `tseries` – ARMA-GARCH modeling  
 - `copula` – Copula fitting and diagnostics  
 - `VineCopula` – GOF tests and copula validation  
-- `ggplot2` – Custom visualization  
+- `ggplot2` / `gtable` / `gridExtra` / base R – Custom visualization  
 
 ---
 
 ## 📁 Project Structure
 
 project-root/
-├── data/ # Raw and cleaned data
-├── code/ # All R scripts (ARMA-GARCH, Copula fitting)
-├── plots/ # Exported plots (ACF, GARCH residuals, pseudo-observations, copulas)
-└── README.md # Project summary and documentation
+├── Project_work_24_25.Rmd # Full R Markdown report
+├── Project_work_24_25.pdf # Final compiled PDF report
+├── Project_work_24_25.html # Optional HTML output
+├── preamble.tex # LaTeX formatting customization
+├── Project_work_24_25_files/ # HTML figure files (auto-generated)
+├── Project_work_24_25_cache/ # Rmd cache files
+├── Project_work_24_25.log # LaTeX log
+└── README.md # Project summary (this file)
 
 
 ---
