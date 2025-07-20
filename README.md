@@ -77,6 +77,27 @@ project-root/
 
 ---
 
+## ▶️ How to Run the Project
+
+### Prerequisites
+
+Ensure the following R packages are installed:
+
+```r
+install.packages(c(
+  "quantmod", "xts", "forecast", "rugarch", "tseries",
+  "copula", "VineCopula", "ggplot2", "gtable", "gridExtra"
+))
+```
+
+### Rendering the Report
+You can knit the .Rmd file directly from RStudio or use:
+```
+rmarkdown::render("Project_work_24_25.Rmd", output_format = "pdf_document")
+```
+
+---
+
 ## 📈 Author Notes
 This project aims to demonstrate both **sound marginal modeling** and **robust dependence modeling** using copula theory in R — as commonly applied in risk management of financial portfolios or in insurance.
 
