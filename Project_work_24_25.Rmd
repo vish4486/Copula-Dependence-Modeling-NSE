@@ -1,51 +1,120 @@
 ---
-title: "Project work: Data Science for Insurance"
-output:
-  pdf_document: default
+title: "ARMA-GARCH and Copula Modeling for Indian Stocks"
+author: |
+  **Vishal Nigam SM3800014**  
+  Data Science & Artificial Intelligence  
+  University of Trieste
+date: ""
+output: 
   html_document:
     df_print: paged
-editor_options:
-  chunk_output_type: console
+    toc: true
+    toc_depth: 2
+    theme: cosmo
+    highlight: tango
+  pdf_document:
+    toc: false
+    number_sections: true
+    latex_engine: xelatex
+    fig_caption: true
+    keep_tex: true
+    includes:
+      in_header: preamble.tex
+fontsize: 10pt
+geometry: margin=1in
 ---
 
+\maketitle
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  results = 'asis',
+  fig.align = 'center',
+  fig.width = 6,
+  fig.height = 4
+)
 ```
 
-The data for the project can be an arbitrary dataset obtained from different sources (e.g. Yahoo Finance, R packages, Kaggle, etc) and should consist of a $d$-dimensional vector of risk factors (or risk factor changes), e.g, a set of $d$ time series of financial returns from a portfolio of assets or a dataset concerning insurance losses. 
-For instance, the following R packages contain financial and insurance datasets:
+## Introduction
 
-```
-data(package = "copula")
-data(package = "qrmdata")
-data(package = "evir")
+This report is part of the **Data Science for Insurance** course project. We analyze the marginal and joint behavior of return series from three Indian stocks — **RELIANCE**, **INFY**, and **HDFCBANK** — using:
 
-```
+- ARMA-GARCH models for individual return dynamics
+- Copula-based methods for dependence modeling
 
-The analysis of the chosen dataset must consider the following steps:
+The dataset contains **daily adjusted closing prices** from **January 2015 to July 2025**, sourced from Yahoo Finance.
 
-  **(a)** *Univariate modeling of each component*: for financial time series of log returns, suitable ARMA-GARCH models can be selected and estimated to remove serial correlation and address conditional heterocedasticity; if the data represent insurance losses/expenses (e.g., the LOSS and ALAE Insurance Data in the copula *package*) the marginal models can be chosen among those distributions that are adequate for describing specific features of the data, e.g., right-skewness and heavy tails.
- 
-  **(b)** *Dependence modelling via copulas* based on the residuals from step (a) that are transformed to pseudo-copula observations, taking values in $[0,1]^d$. The characterization of the dependence between the $d$ components can be addressed 
-  
-  - by estimating association measures and/or tail dependence coefficients for pairs of r.v.s
-  
-  - by selecting a suitable parametric copula model (the model should be validated via graphical diagnostical tools or statistical tests).
-  
-  
-install.packages(c("quantmod", "rugarch", "tseries", "forecast"))
+## Project Objectives
+
+- Model **univariate return volatility** using ARMA-GARCH
+- Extract **i.i.d. standardized residuals**
+- Convert residuals into **pseudo-observations**
+- Study pairwise dependence with **copula families**
+- Estimate **tail dependence** and **rank-based measures**
+- Assess model fit via **GOF statistics** and **visual checks**
+
+
+## Methodology Overview
+
+### Univariate Modeling
+
+We model log-returns of each stock using **ARMA-GARCH**:
+- ARMA for serial correlation
+- GARCH(1,1) to capture volatility clustering
+- Innovations follow a **Student-t** distribution
+- Residuals standardized and transformed to **pseudo-observations** via empirical CDF
+
+### Dependence Modeling (Copulas)
+
+After filtering marginal effects, we model **pairwise dependence** via:
+- Rank-based measures: **Kendall’s τ**, **Spearman’s ρ**
+- Tail dependence: **Upper (λᵤ)** and **Lower (λₗ)**
+- Copula families: **Clayton**, **Gumbel**, **Gaussian**, **t-Copula**
+- Selection criteria: **log-likelihood**, **Cramér–von Mises (CvM)** test, and **graphical diagnostics**
+
+## R Packages Used
+| Task                   | Packages                   |
+|------------------------|----------------------------|
+| Data retrieval         | `quantmod`, `xts`          |
+| Time series modeling   | `forecast`, `rugarch`,`tseries`|
+| Copula modeling        | `copula`, `VineCopula`     |
+| Visualization          | `ggplot2`, `gridExtra`, `gtable`, `ggExtra`, base R|
+
+This workflow applies modern **risk modeling** tools in R, integrating **time series analysis** and **copula-based dependence**—vital in finance and insurance analytics.
+
+## Section 1: Univariate Modeling of Log Returns
+
+In this section, I modelled the marginal behavior of each stock — **RELIANCE**, **INFY**, and **HDFCBANK** — by analyzing their daily log-returns. The steps involve:
+
+- Downloading and visualizing stock price data
+- Calculating daily log-returns
+- Exploring autocorrelation
+- Fitting optimal **ARMA-GARCH models** to capture conditional volatility
+
+### Data Collection and Preprocessing
+
+I retrieve daily **adjusted closing prices** from **Yahoo Finance** for the three selected stocks using the `quantmod` package.
+
+```{r chunk2, echo=FALSE, results='hide'} 
+
 library(quantmod)
 library(rugarch)
 library(tseries)
 library(forecast)
+```
 
-```{r}
+```{r chunk3, echo=FALSE, results='hide'}
 tickers <- c("RELIANCE.NS", "INFY.NS", "HDFCBANK.NS")
 getSymbols(tickers, src = "yahoo", from = "2015-01-01", to = Sys.Date())
 ```
 
-```{r}
+#### **Adjusted Price Extraction**
+We extract the adjusted closing prices for each stock and remove missing values. This ensures a synchronized time series across all three assets.It shows long-term price trends for all three stocks. We observe general upward movement with market volatility and short-term fluctuations.
+```{r chunk4, echo=FALSE,results='hide',fig.show='hide'}
 # Extract adjusted close prices and merge
 prices <- merge(
   Ad(RELIANCE.NS),
@@ -53,25 +122,22 @@ prices <- merge(
   Ad(HDFCBANK.NS)
 )
 colnames(prices) <- c("RELIANCE", "INFY", "HDFCBANK")
-
 # Remove any rows with NAs
 prices <- na.omit(prices)
-
 # Plot to visualize prices
 plot(prices, main = "Adjusted Closing Prices", multi.panel = TRUE)
 ```
 
 
-```{r}
+```{r chunk5, echo=FALSE,results='hide'}
 # Compute daily log returns
 log_returns <- na.omit(diff(log(prices)))
 
 # Check output
 head(log_returns)
 ```
-  
 
-```{r}
+```{r chunk6, echo=FALSE}
 # Plot each return series
 par(mfrow = c(3, 1))
 plot(log_returns$RELIANCE, main = "RELIANCE Log Returns")
@@ -79,19 +145,42 @@ plot(log_returns$INFY, main = "INFY Log Returns")
 plot(log_returns$HDFCBANK, main = "HDFCBANK Log Returns")
 par(mfrow = c(1, 1))  # reset layout
 ```
+**Interpretation**:
+The plots above show the daily log return series for each stock. All three exhibit typical financial time series behavior:
+High-frequency fluctuations around zero,Sudden large spikes during market stress periods (e.g., early 2020 during the COVID-19 pandemic)
+,Heteroskedasticity — periods of low and high volatility alternate.
 
+### **MultiStock ACF & PACF Analysis**
 
-```{r}
-# for RELIANCE
-par(mfrow = c(1, 2))  # 1 row, 2 columns
+```{r acf-pacf-combined, echo=FALSE, fig.width=10, fig.height=8,fig.pos="H",fig.cap="\\label{fig:acf-pacf-combined} ACF and PACF for Stocks"}
+# 3 rows, 2 columns
+par(mfrow = c(3, 2))
+
+# RELIANCE
 acf(log_returns$RELIANCE, main = "ACF of RELIANCE Returns")
 pacf(log_returns$RELIANCE, main = "PACF of RELIANCE Returns")
-par(mfrow = c(1, 1))  # reset to single plot afterward
+
+# INFY
+acf(log_returns$INFY, main = "ACF of INFY Returns")
+pacf(log_returns$INFY, main = "PACF of INFY Returns")
+
+# HDFCBANK
+acf(log_returns$HDFCBANK, main = "ACF of HDFCBANK Returns")
+pacf(log_returns$HDFCBANK, main = "PACF of HDFCBANK Returns")
+
+# Reset plotting layout
+par(mfrow = c(1, 1))
+
 ```
+**Interpretation**: 
+As shown in Figure, the ACF and PACF plots for RELIANCE log-returns suggest:
 
+- The ACF (left) drops sharply after lag 0, indicating weak autocorrelation, typical for return series.  
+- The PACF (right) shows small spikes around lag 1 and beyond, hinting at short-memory dynamics.  
+- These patterns support fitting a low-order ARMA model such as ARMA(1,1) or ARMA(2,1) to capture the serial dependence.
 
-
-```{r}
+#### **ARMA Modeling – RELIANCE Returns**
+```{r chunk8, echo=FALSE, results='hide'}
 library(forecast)
 
 arma_model <- auto.arima(log_returns$RELIANCE, stationary = TRUE, seasonal = FALSE)
@@ -103,24 +192,39 @@ Box.test(residuals(manual_arma), lag = 20, type = "Ljung-Box")
 
 ```
 
-```{r}
+**Interpretation**:
+The automatic model selected by auto.arima() was a simple ARIMA(0,0,0) with a non-zero mean, which suggests white noise.To improve structure, a manual ARMA(1,1) model was tested. It slightly improved the log-likelihood (6851.62 vs 6850.77) and retained the same error variance.**Residual Check**: The Ljung-Box test on residuals gave a p-value = 0.0055, indicating autocorrelation remains. This implies that even ARMA(1,1) might be insufficient, and a better model may be needed in the next step.**Conclusion**: We proceed to test higher-order ARMA models and move toward volatility modeling with GARCH to capture heteroskedasticity.
+
+
+
+**Residual Diagnostics – ARMA(0,0) Model (RELIANCE)**
+```{r chunk9, echo=FALSE,results='hide',fig.show='hide'}
 arma_resid <- residuals(arma_model)
 acf(arma_resid, main = "ACF of ARMA(0,0) Residuals")
+```
+
+```{r chunk9.1,echo=FALSE,results='hide'}
 Box.test(arma_resid, lag = 20, type = "Ljung-Box")
 ```
 
-```{r}
+The ACF plot of residuals from the ARMA(0,0) model reveals mild autocorrelation across several lags.The Ljung-Box test yields a **p-value of 0.0024**, which strongly suggests that the residuals are not white noise.This confirms that the ARMA(0,0) model fails to fully capture the serial dependence in RELIANCE's return series.**Conclusion**: A more complex ARMA model is necessary to model the autocorrelation structure before proceeding to volatility modeling (GARCH).
+
+
+**Model Refinement: ARMA(3,2) for RELIANCE Returns**
+```{r chunk10, echo=FALSE, results='hide'}
 arma_better <- auto.arima(log_returns$RELIANCE, max.p = 3, max.q = 3,
                           stationary = TRUE, seasonal = FALSE,
                           stepwise = FALSE, approximation = FALSE)
 summary(arma_better)
-```
-
-```{r}
 Box.test(residuals(arma_better), lag = 20, type = "Ljung-Box")
 ```
 
-```{r}
+The improved model selected is ARMA(3,2), which includes higher-order AR and MA terms to better capture autocorrelation.The model has a lower AIC (-13706.83) than previous candidates, indicating improved fit.The Ljung-Box test on residuals now yields a p-value of 0.433, suggesting the residuals no longer exhibit significant autocorrelation.This validates that the ARMA(3,2) model adequately models the mean dynamics of RELIANCE returns.**Conclusion**: ARMA(3,2) is a suitable model for filtering serial correlation, and we can now proceed to model volatility using a GARCH specification.
+
+
+
+#### **Volatility Modeling: GARCH(1,1) with Student-t Errors for RELIANCE**
+```{r chunk11, echo=FALSE, results='hide'}
 library(rugarch)
 garch_spec <- ugarchspec(
   variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
@@ -130,41 +234,46 @@ garch_spec <- ugarchspec(
 
 garch_fit <- ugarchfit(spec = garch_spec, data = log_returns$RELIANCE)
 show(garch_fit)
-
 ```
 
-```{r}
+```{r chunk11.1, echo=FALSE}
 # Extract standardized residuals (z_t = ε_t / σ_t)
 std_resid <- residuals(garch_fit, standardize = TRUE)
 plot(std_resid, main = "Standardized Residuals - RELIANCE")
 ```
+**Interpretation**:
 
+A GARCH(1,1) model was fitted with an ARMA(3,2) mean process and Student-t distribution to account for heavy tails in returns.The GARCH terms are highly significant:α₁ (ARCH) = 0.056,β₁ (GARCH) = 0.906, indicating strong volatility clustering, a typical feature of financial returns.The shape parameter (~5.43) confirms the presence of heavy tails.The standardized residuals plot shows reduced volatility clustering, supporting that the conditional heteroscedasticity has been modeled adequately.Ljung-Box and ARCH LM tests on residuals and squared residuals return high p-values, indicating no remaining serial correlation or ARCH effects.The model passes the stability tests, confirming good specification and parameter stability.**Conclusion**: The GARCH(1,1) model with Student-t innovations fits the RELIANCE returns well and produces uncorrelated, homoscedastic residuals ready for copula-based dependence modeling.
 
-```{r}
+#### **Transformation to Pseudo-Observations – RELIANCE**
+```{r chunk12, echo=FALSE, results='hide', fig.show='hide'}
 std_vec <- as.numeric(std_resid)  # flatten to numeric
 n <- length(std_vec)
 u_reliance <- rank(std_vec) / (n + 1)
-
 # Plot histogram
 hist(u_reliance, breaks = 30, col = "skyblue", main = "Pseudo-observations for RELIANCE")
-
 ```
+To model dependence using copulas, we first need to convert the standardized residuals into uniform pseudo-observations on the [0,1] interval.This is done via rank transformation, which ensures the marginal distribution of each series is uniform — a prerequisite for copula modeling.
 
-```{r}
+### **Autocorrelation Analysis of INFY Returns**
+```{r chunk13, echo=FALSE, results='hide', fig.show='hide'}
 #Step 1: Plot ACF and PACF of INFY Returns
 par(mfrow = c(1, 2))
 acf(log_returns$INFY, main = "ACF of INFY Returns")
 pacf(log_returns$INFY, main = "PACF of INFY Returns")
 par(mfrow = c(1, 1))
 ```
+**Interpretation**: As shown in Figure, the ACF and PACF plots for INFY log-returns reveal:
 
-```{r}
+- The ACF shows a sharp drop after lag 1, suggesting weak autocorrelation beyond immediate lags.  
+- The PACF contains several significant spikes, indicating potential autoregressive components.  
+- These results suggest that INFY returns may benefit from an ARMA model to adequately remove linear dependence before proceeding with GARCH modeling.
+
+#### **ARMA Modeling and Residual Diagnostics – INFY**
+```{r chunk14, echo=FALSE,results='hide', fig.show='hide'}
 #Step 2: Fit ARMA Model to INFY
 arma_infy <- auto.arima(log_returns$INFY, stationary = TRUE, seasonal = FALSE)
 summary(arma_infy)
-```
-
-```{r}
 #Step 3: Residual Checks – INFY
 arma_resid_infy <- residuals(arma_infy)
 # Plot ACF of residuals
@@ -173,9 +282,11 @@ acf(arma_resid_infy, main = "ACF of ARMA(0,0) Residuals - INFY")
 # Ljung-Box test for autocorrelation
 Box.test(arma_resid_infy, lag = 20, type = "Ljung-Box")
 ```
+**Interpretation:**
+The automatically selected model for INFY is an ARIMA(0,0,0) with a constant mean (essentially a white noise model).Although the residual ACF plot appears flat, the Ljung-Box test p-value = 0.00344 indicates significant autocorrelation remains.This implies that the ARIMA(0,0,0) model does not sufficiently capture the dynamics of the INFY return series.**Conclusion:** We should fit a more complex ARMA(p,q) model to better eliminate autocorrelation and prepare the series for GARCH modeling.
 
-
-```{r}
+#### **Improved ARMA Model Selection for INFY**
+```{r chunk15, echo=FALSE,results='hide', fig.show='hide'}
 #Solution: Fit a Better ARMA(p,q) Model for INFY with more exhaustive search
 arma_better_infy <- auto.arima(
   log_returns$INFY,
@@ -184,14 +295,14 @@ arma_better_infy <- auto.arima(
   stepwise = FALSE, approximation = FALSE
 )
 summary(arma_better_infy)
-```
-
-```{r}
 #Residual Diagnostic-Let’s confirm this model has white noise residuals.
 Box.test(residuals(arma_better_infy), lag = 20, type = "Ljung-Box")
 ```
+**Interpretation:**
+The refined model selected is an ARIMA(3,0,2) with a non-zero mean.It significantly improves log-likelihood (6935.38) and AIC (-13856.76) compared to the initial ARIMA(0,0,0).Importantly, the Ljung-Box test p-value = 0.3671 indicates no significant autocorrelation in residuals — a strong sign that the model adequately captures serial dependence.**Conclusion:**This ARMA(3,2) model provides a much better fit for INFY log returns, ensuring the residuals are approximately white noise and making it suitable for GARCH modeling next.
 
-```{r}
+#### **ARMA-GARCH Modeling and Pseudo-Observations for INFY**
+```{r chunk16, echo=FALSE,results='hide', fig.show='hide'}
 #Fit GARCH(1,1) with Student-t for INFY
 spec_garch_infy <- ugarchspec(
   variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
@@ -203,12 +314,12 @@ fit_garch_infy <- ugarchfit(spec = spec_garch_infy, data = log_returns$INFY)
 show(fit_garch_infy)
 ```
 
-
-```{r}
-# Standardize Residuals + Pseudo-Observations
+```{r chunk17, echo=FALSE,results='hide', fig.show='hide'}
 std_resid_infy <- residuals(fit_garch_infy, standardize = TRUE)
 plot(std_resid_infy, main = "Standardized Residuals - INFY")
+```
 
+```{r chunk18, echo=FALSE, results='hide', fig.show='hide'}
 # Convert to [0,1]
 std_vec_infy <- as.numeric(std_resid_infy)
 n_infy <- length(std_vec_infy)
@@ -217,93 +328,116 @@ u_infy <- rank(std_vec_infy) / (n_infy + 1)
 # Plot histogram
 hist(u_infy, breaks = 30, col = "skyblue", main = "Pseudo-observations for INFY")
 ```
+**Interpretation:**
+We fitted an ARMA(3,2) + GARCH(1,1) model with Student-t errors to capture both serial dependence and volatility clustering in INFY log returns.Model diagnostics confirm a good fit:Ljung-Box p-values > 0.9 on residuals and squared residuals indicate no autocorrelation or ARCH effects remain.All GARCH parameters are statistically significant or nearly so, and the Student-t shape parameter (~4.51) confirms heavier tails than Gaussian.The histogram of pseudo-observations (uniform[0,1]) shows a nearly flat distribution — a sign of properly modeled margins, suitable for copula modeling.
 
-```{r}
+### **Autocorrelation Analysis: HDFCBANK Returns**
+```{r chunk19, echo=FALSE, results='hide', fig.show='hide'}
 # HDFCBANK Univariate Modeling
 #Plot ACF/PACF of log_returns$HDFCBANK
 par(mfrow = c(1, 2))
 acf(log_returns$HDFCBANK, main = "ACF of HDFCBANK Returns")
 pacf(log_returns$HDFCBANK, main = "PACF of HDFCBANK Returns")
 par(mfrow = c(1, 1))
-
 ```
+As shown in Figure, the ACF and PACF plots for HDFCBANK log-returns reveal:
 
-```{r}
+- A sharp drop in ACF after lag 1, indicating weak serial correlation beyond the first lag.  
+- Several scattered spikes in the PACF, suggesting short-term autoregressive structure.  
+- These features support fitting an ARMA-GARCH model to capture autocorrelation and volatility clustering.
+
+#### **ARMA(5,2) Model Estimation and Residual Diagnostics for HDFCBANK**
+```{r chunk20, echo=FALSE,results='hide',fig.show='hide'}
 #Fit ARMA Model for HDFCBANK
 arma_hdfc <- auto.arima(log_returns$HDFCBANK, stationary = TRUE, seasonal = FALSE)
 summary(arma_hdfc)
-```
-
-```{r}
+#Step 3: Residual Checks – HDFC
+arma_resid_hdfc <- residuals(arma_hdfc)
+# Plot ACF of residuals
+acf(arma_resid_hdfc, main = "ACF of ARMA(5,2) Residuals - HDFC")
 #Residual Diagnostic
 Box.test(residuals(arma_hdfc), lag = 20, type = "Ljung-Box")
 ```
+The ARMA(5,2) model selected by auto.arima() provides a good fit to the HDFCBANK return series, as reflected by a high log-likelihood and low AIC value.The ACF plot of residuals shows no significant autocorrelation, suggesting the residuals are white noise.The Ljung-Box test returns a high p-value (0.736), failing to reject the null hypothesis of no autocorrelation. This confirms the model has adequately captured the serial structure in the data.Overall, the ARMA(5,2) specification seems statistically valid and provides a suitable mean equation for the subsequent GARCH modeling.
 
-```{r}
+#### **GARCH(1,1) Modeling with Student-t Innovations for HDFCBANK**
+```{r chunk21, echo=FALSE,results='hide',fig.show='hide'}
 #Fit GARCH(1,1) with Student-t for HDFCBANK
 spec_garch_hdfc <- ugarchspec(
   variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
   mean.model = list(armaOrder = c(5, 2), include.mean = TRUE),  # ARMA(5,2)
   distribution.model = "std"
 )
-
 fit_garch_hdfc <- ugarchfit(spec = spec_garch_hdfc, data = log_returns$HDFCBANK)
 show(fit_garch_hdfc)
 ```
-
-```{r}
+```{r chunk22, echo=FALSE,results='hide', fig.show='hide'}
 # Standardize + Transform to Pseudo-Observations
 std_resid_hdfc <- residuals(fit_garch_hdfc, standardize = TRUE)
 plot(std_resid_hdfc, main = "Standardized Residuals - HDFCBANK")
+```
 
+```{r chunk23, echo=FALSE, results='hide', fig.show='hide'}
 # Convert to U[0,1]
 std_vec_hdfc <- as.numeric(std_resid_hdfc)
 n_hdfc <- length(std_vec_hdfc)
 u_hdfc <- rank(std_vec_hdfc) / (n_hdfc + 1)
-
 # Plot histogram
 hist(u_hdfc, breaks = 30, col = "skyblue", main = "Pseudo-observations for HDFCBANK")
 ```
 
-```{r}
+The ARMA(5,2) structure was selected for the mean equation, as manually specified following earlier auto.arima suggestions. This structure aims to capture any remaining short-term autocorrelation in the returns.The GARCH(1,1) model shows strong evidence of volatility clustering, with significant GARCH parameters:$\alpha_1 = 0.0556$, $\beta_1 = 0.9191$, both highly significant. The persistence ($\alpha + \beta \approx 0.975$) confirms long memory in volatility.The innovations are modeled using the Student-t distribution, with estimated shape parameter ≈ 5.22, capturing heavy tails in the residuals.The standardized residuals plot shows mostly stable fluctuations around zero, supporting the adequacy of the fitted model.Ljung-Box tests on standardized and squared residuals show high p-values across lags (e.g., p = 0.999 for lag 34), suggesting no remaining serial correlation or ARCH effects.The pseudo-observations histogram appears close to uniform over [0,1], which is ideal for the upcoming copula-based dependence modeling.
+**Conclusion:The ARMA(5,2)–GARCH(1,1)–Student-t model** is well-fitted to HDFCBANK log-returns, producing standardized residuals that are iid and heavy-tailed—ideal inputs for copula construction.
+
+## **Section b-Dependence Modelling**
+```{r chunk24, echo=FALSE,results='hide'}
+#Construction of Multivariate Pseudo-Observation Matrix
 # 3-dimensional pseudo-observation vector:
 U_matrix <- cbind(u_reliance, u_infy, u_hdfc)
 colnames(U_matrix) <- c("RELIANCE", "INFY", "HDFCBANK")
 ```
 
-section b-Dependence Modelling 
-
-```{r}
-##Step 1: Pairwise Scatterplots of Pseudo-Observations to Visualize the joint behavior in to assess:Symmetry,Tail dependence,Clustering near edges
-install.packages(c("copula", "ggplot2"))
-library(copula)
+### Visualizing Pairwise Dependence via Pseudo-Observation Scatterplots*
+To gain an initial understanding of the joint dependence between the standardized innovations of the three financial return series (RELIANCE, INFY, and HDFCBANK), we plot scatterplots of their pseudo-observations. These plots allow for a nonparametric visual inspection of the dependence structure before any copula modeling.
+```{r chunk25, echo=FALSE, fig.width=10, fig.height=5}
+library(gtable)
 library(ggplot2)
-```
+library(gridExtra)
 
-```{r}
-#Plot Each Pair (RELIANCE–INFY, RELIANCE–HDFCBANK, INFY–HDFCBANK)
 df_pairs <- as.data.frame(U_matrix)
-
-# RELIANCE vs INFY
-ggplot(df_pairs, aes(x = RELIANCE, y = INFY)) +
+# Create plots
+p1 <- ggplot(df_pairs, aes(x = RELIANCE, y = INFY)) +
   geom_point(alpha = 0.5) +
-  labs(title = "Pseudo-observations: RELIANCE vs INFY", x = "RELIANCE", y = "INFY") +
+  labs(title = "RELIANCE vs INFY") +
   theme_minimal()
 
-# RELIANCE vs HDFCBANK
-ggplot(df_pairs, aes(x = RELIANCE, y = HDFCBANK)) +
+p2 <- ggplot(df_pairs, aes(x = RELIANCE, y = HDFCBANK)) +
   geom_point(alpha = 0.5) +
-  labs(title = "Pseudo-observations: RELIANCE vs HDFCBANK", x = "RELIANCE", y = "HDFCBANK") +
+  labs(title = "RELIANCE vs HDFCBANK") +
   theme_minimal()
 
-# INFY vs HDFCBANK
-ggplot(df_pairs, aes(x = INFY, y = HDFCBANK)) +
+p3 <- ggplot(df_pairs, aes(x = INFY, y = HDFCBANK)) +
   geom_point(alpha = 0.5) +
-  labs(title = "Pseudo-observations: INFY vs HDFCBANK", x = "INFY", y = "HDFCBANK") +
+  labs(title = "INFY vs HDFCBANK") +
   theme_minimal()
+
+# Arrange plots in one row (or adjust ncol/nrow)
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
 ```
+**Interpretation of Scatterplots**
 
-```{r}
+**RELIANCE vs INFY:**
+The scatterplot appears fairly uniform, with slight clustering near the corners.This suggests mild tail dependence, particularly in joint extreme movements (lower-left and upper-right corners).
+
+**RELIANCE vs HDFCBANK:**
+The scatter shows a slightly stronger pattern of co-movement, especially along the diagonal.Indicates moderate positive dependence, potentially with stronger lower-tail co-movement.
+
+**INFY vs HDFCBANK:**
+This pair appears visually similar to RELIANCE–INFY, with scattered points and slight density in tail regions.Suggests weak to moderate symmetric dependence.
+These plots serve as a precursor to formal tail dependence and copula fitting, guiding expectations about the types of copulas (e.g., t, Clayton, Gumbel) that may be appropriate in the next steps.
+
+### **Dependence Measure Estimation: Kendall’s Tau, Spearman’s Rho & Tail Dependence**
+```{r chunk27, echo=FALSE,results='hide'}
 #Step 2 – Estimate Dependence Measures-We’ll now compute:Kendall’s tau (nonparametric concordance),Spearman’s rho (rank correlation)
 # Dependence measures
 kendall_relinfy  <- cor(U_matrix[,1], U_matrix[,2], method = "kendall")
@@ -325,8 +459,22 @@ cat("RELIANCE–INFY:     ", spearman_relinfy, "\n")
 cat("RELIANCE–HDFCBANK: ", spearman_relhdfc, "\n")
 cat("INFY–HDFCBANK:     ", spearman_infyhdfc, "\n")
 ```
+In this section, we quantify the strength and nature of dependence between the standardized returns of RELIANCE, INFY, and HDFCBANK using both rank-based correlation metrics and empirical tail dependence.
 
-```{r}
+**Kendall’s Tau & Spearman’s Rho**
+These nonparametric measures are computed from the pseudo-observations derived after GARCH filtering. They assess monotonic relationships between asset pairs:
+
+| Pair              | Kendall’s Tau | Spearman’s Rho |
+| ----------------- | ------------- | -------------- |
+| RELIANCE–INFY     | 0.15          | 0.22           |
+| RELIANCE–HDFCBANK | 0.24          | 0.35           |
+| INFY–HDFCBANK     | 0.14          | 0.21           |
+
+
+All values are positive, confirming weak to moderate positive dependence.The strongest dependence is observed between RELIANCE and HDFCBANK, consistent with visual inspections.The metrics provide a global summary, complementing localized insights from scatterplots.
+
+### **Empirical Tail Dependence Estimation ($\lambda_l$, $\lambda_u$) Between Asset Pairs**
+```{r chunk28, echo=FALSE,results='hide'}
 #Estimate Tail Dependence Coefficients (λₗ, λᵤ)
 #Upper tail dependence (λᵤ): tendency for large values to co-occur
 #Lower tail dependence (λₗ): tendency for small values to co-occur
@@ -352,14 +500,23 @@ cat("RELIANCE–HDFCBANK:  λ_U =", tail_relhdfc$lambda_U, ", λ_L =", tail_relh
 cat("INFY–HDFCBANK:      λ_U =", tail_infyhdfc$lambda_U, ", λ_L =", tail_infyhdfc$lambda_L, "\n")
 ```
 
-```{r}
+| Pair              | $\lambda_u$ (Upper Tail) | $\lambda_l$ (Lower Tail) |
+| ----------------- | -------------------------- | -------------------------- |
+| RELIANCE–INFY     | 0.092                      | 0.193                      |
+| RELIANCE–HDFCBANK | 0.146                      | 0.285                      |
+| INFY–HDFCBANK     | 0.116                      | 0.200                      |
+
+**Interpretation:**
+Lower tail dependence is consistently stronger than upper tail, indicating that extreme losses tend to co-occur more than extreme gains among the stocks.RELIANCE–HDFCBANK shows the strongest tail dependence in both tails, again confirming earlier findings of stronger dependence between these two stocks.These insights support the choice of asymmetric copula families like Clayton (lower tail focus) or Gumbel (upper tail focus) for modeling joint distributions.
+
+```{r chunk29, echo=FALSE,results='hide'}
 ##Fit Parametric Copulas (Clayton, Gumbel, Gaussian, t)
 # Goal:Fit 4 copula models for each asset pair and compare:
 #Clayton → captures lower tail dependence,
 #Gumbel → captures upper tail dependence,
 #Gaussian → symmetric, no tail dependence,
 #t-Copula → symmetric with tail dependence....We’ll fit models using maximum likelihood estimation via the {copula} package.
-install.packages("copula")
+
 library(copula)
 ##Create a matrix of pseudo-observations
 u1 <- U_matrix[,1]  # RELIANCE
@@ -374,10 +531,6 @@ fit_gumbel <- fitCopula(gumbelCopula(dim=2), data = U12, method = "ml")
 fit_normal <- fitCopula(normalCopula(dim=2), data = U12, method = "ml")
 # t Copula (estimate df too)
 fit_t <- fitCopula(tCopula(dim=2, df.fixed=FALSE), data = U12, method = "ml")
-```
-
-
-```{r}
 #View Parameter Estimates and Log-Likelihoods
 loglik_clayton <- logLik(fit_clayton)
 loglik_gumbel  <- logLik(fit_gumbel)
@@ -391,7 +544,8 @@ cat("Gaussian: ", loglik_normal, "\n")
 cat("t-Copula: ", loglik_t, "\n")
 ```
 
-```{r}
+
+```{r chunk30, echo=FALSE,results='hide'}
 #Fit Copulas for RELIANCE – HDFCBANK next.
 u1 <- U_matrix[,1]  # RELIANCE
 u3 <- U_matrix[,3]  # HDFCBANK
@@ -409,8 +563,8 @@ logLik(fit_normal_13)
 logLik(fit_t_13)
 ```
 
-```{r}
-#Fit Copulas for RELIANCE – HDFCBANK next.
+```{r chunk31, echo=FALSE,results='hide'}
+#Fit Copulas for INFY – HDFCBANK next.
 u2 <- U_matrix[,2]  # INFY
 u3 <- U_matrix[,3]  # HDFCBANK
 U23 <- cbind(u2, u3)
@@ -429,32 +583,24 @@ logLik(fit_t_23)
 ```
 
 | Pair                | Clayton | Gumbel | Gaussian | **t-Copula** |
-| ------------------- | ------- | ------ | -------- | ------------ |
-| RELIANCE – INFY     | 72.44   | 51.41  | 68.41    | **77.62** ✅  |
-| RELIANCE – HDFCBANK | 188.05  | 146.65 | 181.68   | **200.44** ✅ |
-| INFY – HDFCBANK     | 66.18   | 51.05  | 65.04    | **74.89** ✅  |
+| ------------------- | ------- | ------ | -------- | ---------- |
+| RELIANCE – INFY     | 72.44   | 51.41  | 68.41    | **77.62**  |
+| RELIANCE – HDFCBANK | 188.05  | 146.65 | 181.68   | **200.44** |
+| INFY – HDFCBANK     | 66.18   | 51.05  | 65.04    | **74.89**  |
 
+**Interpretation:**
+In all three cases, the t-copula has the highest log-likelihood-Clayton is second-best, reflecting strong lower tail dependence
+,Gumbel is worst in all cases → confirms weak upper tail behavior and Gaussian is not terrible, but doesn’t account for tail risk
 
-🧠 Interpretation:
-In all three cases, the t-copula has the highest log-likelihood
-
-Clayton is second-best, reflecting strong lower tail dependence
-
-Gumbel is worst in all cases → confirms weak upper tail behavior
-
-Gaussian is not terrible, but doesn’t account for tail risk
-
-
-```{r}
+```{r chunk32, echo=FALSE,results='hide'}
 #Goodness-of-Fit (GOF) Tests for Copulas---We’ll use:
 #Cramér–von Mises (CvM)
 #Kolmogorov–Smirnov (KS)
 #To test:“Does the fitted copula describe the observed pseudo-observations well?”
-install.packages("VineCopula")
 library(VineCopula)
 ```
 
-```{r}
+```{r chunk33, echo=FALSE,cache=TRUE,results='hide'}
 #GOF Test for RELIANCE–INFY
 ## Extract pseudo-observations
 U12 <- cbind(U_matrix[,1], U_matrix[,2])
@@ -465,29 +611,33 @@ print(gof_t12)
 ```
 
 
-```{r}
+```{r chunk34, echo=FALSE,cache=TRUE,results='hide'}
 # RELIANCE – HDFCBANK
 BiCopGofTest(U_matrix[,1], U_matrix[,3], family = 2)
 
 # INFY – HDFCBANK
 BiCopGofTest(U_matrix[,2], U_matrix[,3], family = 2)
 ```
-
-Interpretation:
+**Interpretation**:
 Very high p-value (0.97) → excellent fit
 
 Suggests t-copula describes this pair’s joint behavior almost perfectly
 
 | Pair                | CvM Stat | p-value | Fit Verdict |
 | ------------------- | -------- | ------- | ----------- |
-| RELIANCE – INFY     | 0.693    | 0.73    | ✅ Valid     |
-| RELIANCE – HDFCBANK | 1.268    | 0.52    | ✅ Valid     |
-| INFY – HDFCBANK     | 0.070    | 0.97    | ✅ Excellent |
+| RELIANCE – INFY     | 0.693    | 0.73    | Valid     |
+| RELIANCE – HDFCBANK | 1.268    | 0.52    | Valid     |
+| INFY – HDFCBANK     | 0.070    | 0.97    | Excellent |
 
+<!-- 
+### **Graphical Diagnostics-Contour plots of fitted copulas**
 
-#Graphical Diagnostics-Contour plots of fitted copulas,Comparison with empirical copula,(Optional) Simulated vs. observed QQ plots
-##Contour Plot – Fitted vs Empirical
-```{r}
+Comparison with empirical copula,(Optional) Simulated vs. observed QQ plots
+
+**Contour Plot – Fitted vs Empirical**
+-->
+
+```{r chunk35, echo=FALSE, results='hide',fig.show='hide'}
 #RELIANCE–INFY example:
 # Step 1: Recreate the t-copula with fitted parameters
 fit <- fit_t@copula  # from your earlier fit_t (RELIANCE–INFY)
@@ -508,7 +658,7 @@ plot(sim_t, main = "Simulated from Fitted t-Copula", xlab = "RELIANCE", ylab = "
 ```
 
 
-```{r}
+```{r chunk36, echo=FALSE, results='hide', fig.show='hide'}
 # Contour of the fitted copula density
 # Create a grid over [0,1] x [0,1]
 u_grid <- seq(0.01, 0.99, length.out = 50)
@@ -526,30 +676,26 @@ filled.contour(
   xlab = "u1 (RELIANCE)", ylab = "u2 (INFY)"
 )
 ```
+<!-- 
+**Plot 1: Density Contour – Fitted t-Copula **
+**What it shows:** The smooth density surface estimated by the t-copula over the $[0,1]^2$ pseudo-observation space.
 
-✅ Plot 1: Density Contour – Fitted t-Copula
-What it shows: The smooth density surface estimated by the t-copula over the 
-[0,1]^2 pseudo-observation space.
+**Interpretation:**
+Higher density in the corners (lower-left and upper-right) suggests positive dependence (i.e., when RELIANCE has a high return, INFY is more likely to have a high return too, and vice versa).The tail structure visible here is consistent with the moderate lower tail dependence (($\lambda_l$) ≈ 0.193).
 
-Interpretation:
+**Plot 2: Empirical vs Simulated Pseudo-Observations **
 
-Higher density in the corners (lower-left and upper-right) suggests positive dependence (i.e., when RELIANCE has a high return, INFY is more likely to have a high return too, and vice versa).
+**Left Panel:**  original pseudo-observations from the standardized residuals.
+**Right Panel:** New samples drawn from the fitted t-copula model.
 
-The tail structure visible here is consistent with the moderate lower tail dependence (λₗ ≈ 0.193).
-
-✅ Plot 2: Empirical vs Simulated Pseudo-Observations
-Left Panel:  original pseudo-observations from the standardized residuals.
-
-Right Panel: New samples drawn from the fitted t-copula model.
-
-🧠 What this confirms:
-The simulated pattern is very similar to the empirical one.
-This visually validates that the t-copula is a good model for the joint structure between RELIANCE and INFY.
-Combined with the log-likelihood and GOF test (p-value = 0.73), this plot strengthens model validation.
+**What this confirms:**
+The simulated pattern is very similar to the empirical one.This visually validates that the t-copula is a good model for the joint structure between RELIANCE and INFY.Combined with the log-likelihood and GOF test (p-value = 0.73), this plot strengthens model validation.
 
 
+### **Empirical Tail Dependence Estimation ($\lambda_l$, $\lambda_u$) Between Asset Pairs**
+-->
 
-```{r}
+```{r chunk37, echo=FALSE,fig.show='hide'}
 # empirical vs simulated scatter plots for RELIANCE-HDFCBANK
 # Simulate from fitted t-copula
 u1 <- U_matrix[, 1]  # RELIANCE  
@@ -568,15 +714,18 @@ plot(sim_13, col = "tomato", pch = 16, main = "Simulated from Fitted t-Copula",
 par(mfrow = c(1,1))
 ```
 
-```{r}
-#CONTOUR PLOT for for RELIANCE-HDFCBANK pair
-# Extract pseudo-observations
+```{r chunk38, echo=FALSE, fig.width=8, fig.height=6,fig.show='hide'}
+#CONTOUR PLOT for RELIANCE-HDFCBANK pair
+#Extract pseudo-observations
 u1 <- U_matrix[, 1]  # RELIANCE
 u3 <- U_matrix[, 3]  # HDFCBANK
 U13 <- cbind(u1, u3)
 
 # Fit t-Copula
 fit_13 <- fitCopula(tCopula(dim=2, df.fixed=FALSE), data = U13, method = "ml")
+
+# Set outer margin to avoid title clipping
+par(oma = c(0, 0, 3, 0))
 
 # Contour Plot
 filled.contour(
@@ -585,14 +734,14 @@ filled.contour(
   z = outer(seq(0.01, 0.99, length.out = 50), seq(0.01, 0.99, length.out = 50),
             Vectorize(function(u, v) dCopula(cbind(u, v), fit_13@copula))),
   color.palette = terrain.colors,
-  main = "Density Contour – Fitted t-Copula (RELIANCE–HDFCBANK)",
+  main = "Density–Fitted t-Cop(RELIANCE–HDFCBANK)",
   xlab = "u1 (RELIANCE)", ylab = "u3 (HDFCBANK)"
 )
 ```
 
 
 
-```{r}
+```{r chunk39, echo=FALSE,results='hide',fig.show='hide'}
 #Fit and Simulate from Fitted t-Copula (INFY–HDFCBANK)
 # Prepare data
 u2 <- U_matrix[, 2]  # INFY  
@@ -616,7 +765,7 @@ par(mfrow = c(1, 1))
 ```
 
 
-```{r}
+```{r chunk40, echo=FALSE,results='hide',fig.show='hide'}
 #contour plot for INFY-HDFCBANK
 # Create contour grid and plot density
 filled.contour(
@@ -633,26 +782,22 @@ filled.contour(
 )
 ```
 
+### **(Dependence Modeling) for all 3 stock pairs using copula-based techniques**
+Here's a quick recap of what i've achieved:
 
-
-##(Dependence Modeling) for all 3 stock pairs using copula-based techniques. Here's a quick recap of what i've achieved:
 | Pair                  | Best Copula | Log-Likelihood | GOF p-value | Key Tail Feature                   |
 | --------------------- | ----------- | -------------- | ----------- | ---------------------------------- |
-| **RELIANCE–INFY**     | t-copula    | 77.62          | 0.73        | Lower tail dependence (λₗ = 0.193) |
+| **RELIANCE–INFY**     | t-copula    | 77.62          | 0.73        | Lower tail dependence (($\lambda_l$) = 0.193) |
 | **RELIANCE–HDFCBANK** | t-copula    | 200.44         | 0.52        | Strongest tail dependence overall  |
-| **INFY–HDFCBANK**     | t-copula    | 74.89          | 0.97        | Similar to REL–INFY (λₗ = 0.193)   |
+| **INFY–HDFCBANK**     | t-copula    | 74.89          | 0.97        | Similar to REL–INFY (($\lambda_l$) = 0.193)   |
 
-#📈 Visual Diagnostics:
+**📈 Visual Diagnostics:**
 Empirical vs Simulated Pseudo-Obs Plots (all pairs)
 
-Density Contours from Fitted Copula Densities
+Density Contours from Fitted Copula Densities-These plots show that your simulated t-copulas closely reproduce the observed dependence structure in the pseudo-observations — a very strong validation.
 
-These plots show that your simulated t-copulas closely reproduce the observed dependence structure in the pseudo-observations — a very strong validation.
-
-#🧠 Interpretation (Layman Summary):
+**Interpretation:**
 The stocks do not move independently. There is weak to moderate dependence, especially in extreme losses (lower tail).
-
 RELIANCE–HDFCBANK exhibit the strongest co-movement in extreme losses, suggesting systemic risk.
-
 t-copula consistently performs best — makes sense due to its flexibility in capturing both symmetric and tail dependence.
 
