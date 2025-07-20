@@ -63,6 +63,7 @@ This section models the joint dependence between the standardized innovations of
 
 ## 📁 Project Structure
 
+```text
 project-root/
 ├── Project_work_24_25.Rmd # Full R Markdown report
 ├── Project_work_24_25.pdf # Final compiled PDF report
@@ -72,7 +73,7 @@ project-root/
 ├── Project_work_24_25_cache/ # Rmd cache files
 ├── Project_work_24_25.log # LaTeX log
 └── README.md # Project summary (this file)
-
+```
 
 ---
 
